@@ -85,9 +85,17 @@
     // provides access to computed attributes,
     // and maps computed dependency references while establishing bindings.
     get: function(attribute) {
+      var self = this;
 
-      // Automatically register bindings while building out computed dependency graphs:
-      modelMap && modelMap.push(['change:'+attribute, this]);
+      // Automatically register bindings while building out computed dependency graphs
+      //   for plain attributes (change:XXX),
+      //   for collections ('add|remove|reset|update:XXX') and
+      //   for Backbone.Relational hasMany-collections ('relational:change:XXX')
+      if (modelMap) {
+        _.forEach(['change:', 'add:', 'remove:', 'update:', 'reset:', 'relational:change:'], function (prefix) {
+            modelMap.push([prefix+attribute, self]);
+          });
+      }
 
       // Return a computed property value, if available:
       if (this.hasComputed(attribute)) {
