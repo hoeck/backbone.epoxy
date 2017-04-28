@@ -154,7 +154,8 @@
     toJSON: function(options) {
       var json = _super(this, 'toJSON', arguments);
 
-      if (options && options.computed) {
+      // Ensure that json is an object. toJSON implementation of backbone-relational returns plain ID if record is locked
+      if (options && options.computed && isObject(json)) {
         _.each(this.c(), function(computed, attribute) {
           json[ attribute ] = computed.value;
         });
@@ -483,7 +484,7 @@
         if (this.model._setting) {
           this.model._setting.push(evt);
         } else {
-          evt[0] += ' change';
+          //evt[0] += ' change'; // # TODO: see https://github.com/gmac/backbone.epoxy/issues/138. Added change event to own recompute() function so that a generic change event gets triggered when updating a computed manually with myComputed.get(true)
           this.model.trigger.apply(this.model, evt);
         }
       }
@@ -879,6 +880,7 @@
       var read = isFunction(handler) ? handler : handler.get;
       var write = handler.set;
       return function(value) {
+        // # TODO: this isUndefined check causes the issue that no change events are triggered when setting an attribute to undefined, also see https://github.com/gmac/backbone.epoxy/issues/139
         return isUndefined(value) ?
           read.apply(this, _.map(params, readAccessor)) :
           params[0]((write ? write : read).call(this, value));
@@ -1076,7 +1078,8 @@
       }
 
       // Add all computed view properties:
-      _.each(_.result(self, 'computeds')||{}, function(computed, name) {
+      var computeds = _.result(self, 'computeds');
+      _.each(computeds||{}, function(computed, name) {
         var getter = isFunction(computed) ? computed : computed.get;
         var setter = computed.set;
         var deps = computed.deps;
@@ -1117,7 +1120,8 @@
         // <span data-bind='text:attribute'></span>
 
         // Create bindings for each matched element:
-        queryViewForSelector(self, '['+declarations+']').each(function() {
+        var matchedElements = queryViewForSelector(self, '['+declarations+']');
+        matchedElements.each(function() {
           var $element = Backbone.$(this);
           bindElementToView(self, $element, $element.attr(declarations), context, handlers, filters);
         });
@@ -1281,7 +1285,9 @@
       // Validate that each defined handler method exists before binding:
       if (handlers.hasOwnProperty(handlerName)) {
         // Create and add binding to the view's list of handlers:
-        view.b().push(new EpoxyBinding(view, $element, handlers[handlerName], accessor, events, context, bindings));
+        var viewBindings = view.b();
+        var newBinding   = new EpoxyBinding(view, $element, handlers[handlerName], accessor, events, context, bindings);
+        viewBindings.push(newBinding);
       } else if (!allowedParams.hasOwnProperty(handlerName)) {
         throw('binding handler "'+ handlerName +'" is not defined.');
       }
@@ -1350,7 +1356,7 @@
 
     var self = this;
     var tag = ($element[0].tagName).toLowerCase();
-    var changable = (tag == 'input' || tag == 'select' || tag == 'textarea' || $element.prop('contenteditable') == 'true');
+    var changeable = (tag == 'input' || tag == 'select' || tag == 'textarea' || $element.prop('contenteditable') == 'true');
     var triggers = [];
     var reset = function(target) {
       self.$el && self.set(self.$el, readAccessor(accessor), target);
@@ -1376,7 +1382,7 @@
     // => Form element.
     // => Binding handler has a getter method.
     // => Value accessor is a function.
-    if (changable && handler.get && isFunction(accessor)) {
+    if (changeable && handler.get && isFunction(accessor)) {
       self.$el.on(events, function(evt) {
         accessor(self.get(self.$el, readAccessor(accessor), evt));
       });
