@@ -93,8 +93,8 @@
       //   for Backbone.Relational hasMany-collections ('relational:change:XXX')
       if (modelMap) {
         _.forEach(['change:', 'add:', 'remove:', 'update:', 'reset:', 'relational:change:'], function (prefix) {
-            modelMap.push([prefix+attribute, self]);
-          });
+          modelMap.push([prefix+attribute, self]);
+        });
       }
 
       // Return a computed property value, if available:
@@ -418,6 +418,7 @@
       // Configure dependency map, then update the computed's value:
       // All Epoxy.Model attributes accessed while getting the initial value
       // will automatically register themselves within the model bindings map.
+      var self = this;
       var bindings = {};
       var deps = modelMap = [];
       this.get(true);
@@ -447,7 +448,17 @@
         // Bind all event declarations to their respective targets:
         _.each(bindings, function(targets, binding) {
           for (var i=0, len=targets.length; i < len; i++) {
-            this.listenTo(targets[i], binding, _.bind(this.get, this, true));
+            this.listenTo(targets[i], binding, function (model, attrs, options) {
+              if (binding.startsWith('relational:change:') && options && options.parse) {
+                // Skip relationalChange events that carry the parse: true
+                // option as the attributes are in some weird state with
+                // relations being plain objects instead of models or
+                // collections.
+                return;
+              }
+
+              self.get(true);
+            });
           }
         }, this);
       }
