@@ -449,7 +449,7 @@
         _.each(bindings, function(targets, binding) {
           for (var i=0, len=targets.length; i < len; i++) {
             this.listenTo(targets[i], binding, function (model, attrs, options) {
-              if (binding.startsWith('relational:change:') && options && options.parse) {
+              if (binding.indexOf('relational:change:') === 0 && options && options.parse) {
                 // Skip relationalChange events that carry the parse: true
                 // option as the attributes are in some weird state with
                 // relations being plain objects instead of models or
